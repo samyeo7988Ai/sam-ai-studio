@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+
+<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
@@ -6,39 +8,161 @@
 <title>SAM AI 创作大师</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#10101b;color:white;font-family:Arial,sans-serif;padding:20px}
-header{padding:22px 0}
-h1{font-size:29px;margin:0;color:#a995ff}
-p{color:#aaa}
-.card{background:#202034;border:1px solid #393653;border-radius:17px;padding:20px;margin:14px 0}
-button{background:#8065ff;color:white;border:0;padding:13px;border-radius:10px;width:100%;font-size:16px}
-textarea{width:100%;height:110px;background:#151522;color:white;border:1px solid #555;border-radius:10px;padding:12px;font-size:15px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+body{margin:0;background:#10101b;color:white;font-family:Arial;padding:20px}
+header{padding:20px 0}
+h1{color:#a995ff;font-size:28px}
+.card{background:#202034;border:1px solid #393653;border-radius:16px;padding:18px;margin:14px 0}
+textarea,select{width:100%;padding:13px;border-radius:10px;background:#151522;color:white;border:1px solid #555;font-size:15px}
+textarea{height:120px}
+button{width:100%;padding:15px;background:#8065ff;color:white;border:0;border-radius:10px;font-size:16px;font-weight:bold}
+button:disabled{opacity:.5}
+small{color:#aaa}
+#status{color:#c5b8ff;margin:15px 0;line-height:1.6}
+#result{width:100%;border-radius:12px;margin-top:15px}
+a{color:#c5b8ff}
 </style>
 </head>
 <body>
+
 <header>
-<h1>SAM AI 创作大师</h1>
+<h1>✨ SAM AI 创作大师</h1>
 <p>YOUR PERSONAL AI STUDIO</p>
 </header>
+
 <div class="card">
-<h2>🎬 AI 创作中心</h2>
-<p>输入你的创意，开始制作作品</p>
-<textarea id="prompt" placeholder="例如：一位英雄在未来城市中行走..."></textarea>
+<h2>🖼️ AI 图片生成</h2>
+<p>输入你的创意，让 AI 帮你创作。</p>
+
+<textarea id="prompt" placeholder="例如：一位英雄站在未来城市，电影级光影，超真实画质"></textarea>
+
+<p>图片比例</p>
+<select id="ratio">
+<option value="512,512">1:1 正方形</option>
+<option value="768,448">16:9 横版</option>
+<option value="448,768">9:16 竖版</option>
+</select>
+
+<br><br>
+<button id="generate">✨ 免费生成图片</button>
+<p id="status">等待创作...</p>
+<img id="result" hidden>
+<p id="save"></p>
 </div>
-<div class="grid">
-<div class="card">🎥<h3>AI 视频</h3><p>文字生成视频</p></div>
-<div class="card">🖼️<h3>AI 图片</h3><p>创作高清图片</p></div>
-<div class="card">🎞️<h3>AI 短剧</h3><p>制作故事分镜</p></div>
-<div class="card">🧑‍🚀<h3>数字人</h3><p>人物口播创作</p></div>
-<div class="card">🎙️<h3>AI 配音</h3><p>多语言声音</p></div>
-<div class="card">✂️<h3>视频剪辑</h3><p>编辑你的影片</p></div>
-</div>
+
 <div class="card">
-<h3>✨ 我的创作</h3>
-<p>你的作品将在这里显示</p>
-<button onclick="alert('AI生成接口将在下一阶段接入')">开始创作</button>
+<h3>🎬 AI 视频</h3>
+<p>下一阶段开发</p>
 </div>
-<p style="text-align:center;font-size:12px">SAM AI STUDIO · 1.0</p>
+
+<div class="card">
+<h3>🎞️ AI 短剧</h3>
+<p>下一阶段开发</p>
+</div>
+
+<div class="card">
+<h3>🎙️ AI 配音</h3>
+<p>下一阶段开发</p>
+</div>
+
+<p style="text-align:center;color:#888">SAM AI STUDIO 1.0</p>
+
+<script>
+const API="https://aihorde.net/api/v2";
+
+const headers={
+ "Content-Type":"application/json",
+ "apikey":"0000000000",
+ "Client-Agent":"SamAIStudio:1.0:GitHub-samyeo7988Ai"
+};
+
+async function request(url,options={}){
+ const res=await fetch(API+url,{
+  ...options,
+  headers:{...headers,...options.headers}
+ });
+ const data=await res.json();
+ if(!res.ok) throw new Error(data.message||"API错误："+res.status);
+ return data;
+}
+
+const btn=document.getElementById("generate");
+const status=document.getElementById("status");
+const result=document.getElementById("result");
+const save=document.getElementById("save");
+
+btn.onclick=async()=>{
+ const prompt=document.getElementById("prompt").value.trim();
+ if(!prompt){
+  alert("请先输入图片描述");
+  return;
+ }
+
+ btn.disabled=true;
+ result.hidden=true;
+ save.innerHTML="";
+ status.textContent="正在提交图片生成任务...";
+
+ try{
+  const [width,height]=document.getElementById("ratio").value.split(",").map(Number);
+
+  const job=await request("/generate/async",{
+   method:"POST",
+   body:JSON.stringify({
+    prompt:prompt,
+    params:{
+     width:width,
+     height:height,
+     n:1,
+     steps:20,
+     cfg_scale:7
+    },
+    nsfw:false,
+    censor_nsfw:true,
+    r2:true
+   })
+  });
+
+  if(!job.id) throw new Error("没有取得任务编号");
+
+  status.textContent="任务已提交！正在等待免费 GPU...";
+
+  let done=false;
+
+  for(let i=0;i<180;i++){
+   await new Promise(resolve=>setTimeout(resolve,3000));
+
+   const check=await request("/generate/check/"+job.id);
+
+   status.textContent=
+    "正在生成... 已完成："+(check.finished||0)+
+    "，排队中："+(check.waiting||0)+
+    "，处理中："+(check.processing||0);
+
+   if(check.done){
+    done=true;
+    break;
+   }
+  }
+
+  if(!done) throw new Error("等待时间较长，请稍后重新尝试");
+
+  const data=await request("/generate/status/"+job.id);
+  const image=data.generations?.[0]?.img;
+
+  if(!image) throw new Error("暂时没有取得图片，请重新尝试");
+
+  result.src=image;
+  result.hidden=false;
+  save.innerHTML='<a href="'+image+'" target="_blank">打开图片，长按即可保存到手机</a>';
+  status.textContent="🎉 图片生成成功！";
+
+ }catch(error){
+  status.textContent="生成失败："+error.message;
+ }finally{
+  btn.disabled=false;
+ }
+};
+</script>
+
 </body>
 </html>
