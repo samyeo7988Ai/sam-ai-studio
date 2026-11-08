@@ -7,17 +7,17 @@
 <title>SAM AI 创作大师</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#10101b;color:white;font-family:Arial;padding:20px}
-header{padding:20px 0}
+body{margin:0;background:#10101b;color:white;font-family:Arial;padding:18px}
+header{padding:15px 0}
 h1{color:#a995ff;font-size:28px}
 .card{background:#202034;border:1px solid #393653;border-radius:16px;padding:18px;margin:14px 0}
-textarea,select{width:100%;padding:13px;border-radius:10px;background:#151522;color:white;border:1px solid #555;font-size:15px}
-textarea{height:120px}
-button{width:100%;padding:15px;background:#8065ff;color:white;border:0;border-radius:10px;font-size:16px;font-weight:bold}
+textarea,select{width:100%;padding:13px;border-radius:10px;background:#151522;color:white;border:1px solid #555;font-size:15px;margin-top:7px}
+textarea{height:110px}
+button{width:100%;padding:14px;background:#8065ff;color:white;border:0;border-radius:10px;font-size:16px;font-weight:bold;margin-top:10px}
 button:disabled{opacity:.5}
-small{color:#aaa}
 #status{color:#c5b8ff;margin:15px 0;line-height:1.6}
 #result{width:100%;border-radius:12px;margin-top:15px}
+small{color:#aaa}
 a{color:#c5b8ff}
 </style>
 </head>
@@ -29,10 +29,21 @@ a{color:#c5b8ff}
 </header>
 
 <div class="card">
-<h2>🖼️ AI 图片生成</h2>
-<p>输入你的创意，让 AI 帮你创作。</p>
+<h2>🖼️ AI 图片大师</h2>
+<p>输入创意，选择风格，开始创作。</p>
 
-<textarea id="prompt" placeholder="例如：一位英雄站在未来城市，电影级光影，超真实画质"></textarea>
+<textarea id="prompt" placeholder="例如：一辆豪华跑车在未来城市"></textarea>
+
+<p>图片风格</p>
+<select id="style">
+<option value="">自动选择</option>
+<option value="photorealistic, highly detailed, realistic lighting">真实摄影</option>
+<option value="3D render, octane render, cinematic">3D立体</option>
+<option value="anime illustration, beautiful detailed art">动漫风格</option>
+<option value="cinematic movie scene, dramatic lighting">电影风格</option>
+<option value="professional commercial product advertising, premium design">产品广告</option>
+<option value="fantasy digital art, magical atmosphere">奇幻艺术</option>
+</select>
 
 <p>图片比例</p>
 <select id="ratio">
@@ -41,11 +52,17 @@ a{color:#c5b8ff}
 <option value="448,768">9:16 竖版</option>
 </select>
 
-<br><br>
-<button id="generate">✨ 免费生成图片</button>
+<p>生成数量</p>
+<select id="count">
+<option value="1">1 张</option>
+<option value="2">2 张</option>
+</select>
+
+<button id="optimize">✨ 优化我的提示词</button>
+<button id="generate">🎨 开始生成图片</button>
+
 <p id="status">等待创作...</p>
-<img id="result" hidden>
-<p id="save"></p>
+<div id="results"></div>
 </div>
 
 <div class="card">
@@ -63,7 +80,7 @@ a{color:#c5b8ff}
 <p>下一阶段开发</p>
 </div>
 
-<p style="text-align:center;color:#888">SAM AI STUDIO 1.0</p>
+<p style="text-align:center;color:#888">SAM AI STUDIO 2.0</p>
 
 <script>
 const API="https://aihorde.net/api/v2";
@@ -71,7 +88,7 @@ const API="https://aihorde.net/api/v2";
 const headers={
  "Content-Type":"application/json",
  "apikey":"0000000000",
- "Client-Agent":"SamAIStudio:1.0:GitHub-samyeo7988Ai"
+ "Client-Agent":"SamAIStudio:2.0:GitHub-samyeo7988Ai"
 };
 
 async function request(url,options={}){
@@ -86,32 +103,44 @@ async function request(url,options={}){
 
 const btn=document.getElementById("generate");
 const status=document.getElementById("status");
-const result=document.getElementById("result");
-const save=document.getElementById("save");
+const results=document.getElementById("results");
+
+document.getElementById("optimize").onclick=()=>{
+ const prompt=document.getElementById("prompt");
+ if(!prompt.value.trim()){
+  alert("请先输入创意");
+  return;
+ }
+ prompt.value=prompt.value.trim()+
+ ", masterpiece, highly detailed, professional composition, beautiful lighting, high quality";
+ status.textContent="提示词已优化！";
+};
 
 btn.onclick=async()=>{
- const prompt=document.getElementById("prompt").value.trim();
- if(!prompt){
+ const original=document.getElementById("prompt").value.trim();
+ if(!original){
   alert("请先输入图片描述");
   return;
  }
 
+ const style=document.getElementById("style").value;
+ const finalPrompt=original+(style?", "+style:"");
+ const [width,height]=document.getElementById("ratio").value.split(",").map(Number);
+ const count=Number(document.getElementById("count").value);
+
  btn.disabled=true;
- result.hidden=true;
- save.innerHTML="";
- status.textContent="正在提交图片生成任务...";
+ results.innerHTML="";
+ status.textContent="正在提交任务...";
 
  try{
-  const [width,height]=document.getElementById("ratio").value.split(",").map(Number);
-
   const job=await request("/generate/async",{
    method:"POST",
    body:JSON.stringify({
-    prompt:prompt,
+    prompt:finalPrompt,
     params:{
      width:width,
      height:height,
-     n:1,
+     n:count,
      steps:20,
      cfg_scale:7
     },
@@ -123,19 +152,16 @@ btn.onclick=async()=>{
 
   if(!job.id) throw new Error("没有取得任务编号");
 
-  status.textContent="任务已提交！正在等待免费 GPU...";
+  status.textContent="任务已提交，正在等待免费 GPU...";
 
   let done=false;
 
   for(let i=0;i<180;i++){
    await new Promise(resolve=>setTimeout(resolve,3000));
-
    const check=await request("/generate/check/"+job.id);
 
-   status.textContent=
-    "正在生成... 已完成："+(check.finished||0)+
-    "，排队中："+(check.waiting||0)+
-    "，处理中："+(check.processing||0);
+   status.textContent="生成中... 已完成："+(check.finished||0)+
+   "，排队中："+(check.waiting||0);
 
    if(check.done){
     done=true;
@@ -143,16 +169,39 @@ btn.onclick=async()=>{
    }
   }
 
-  if(!done) throw new Error("等待时间较长，请稍后重新尝试");
+  if(!done) throw new Error("等待时间较长，请稍后重试");
 
   const data=await request("/generate/status/"+job.id);
-  const image=data.generations?.[0]?.img;
+  const generations=data.generations||[];
 
-  if(!image) throw new Error("暂时没有取得图片，请重新尝试");
+  if(!generations.length) throw new Error("没有取得图片");
 
-  result.src=image;
-  result.hidden=false;
-  save.innerHTML='<a href="'+image+'" target="_blank">打开图片，长按即可保存到手机</a>';
+  generations.forEach((item,index)=>{
+   const image=item.img;
+   if(!image)return;
+
+   const box=document.createElement("div");
+   box.style.marginTop="18px";
+
+   const img=document.createElement("img");
+   img.src=image;
+   img.style.width="100%";
+   img.style.borderRadius="12px";
+
+   const link=document.createElement("a");
+   link.href=image;
+   link.target="_blank";
+   link.textContent="打开图片并保存第 "+(index+1)+" 张";
+   link.style.display="block";
+   link.style.marginTop="10px";
+
+   box.appendChild(img);
+   box.appendChild(link);
+   results.appendChild(box);
+  });
+
+  if(!results.children.length) throw new Error("没有取得有效图片");
+
   status.textContent="🎉 图片生成成功！";
 
  }catch(error){
